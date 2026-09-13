@@ -25,6 +25,37 @@ const MAX_BYTES = 15 * 1024 * 1024
 
 export class ArchivoInvalido extends Error {}
 
+// ---------------------------------------------------- caché de sesión
+// El texto de la IA se guarda en sessionStorage para no volver a pagarlo. La
+// llave lleva una marca de la SESIÓN y no solo la huella de la pregunta: la
+// huella de una compra de contado ("15000|laptop|c") es idéntica en cualquier
+// cuenta, y sin la marca una cuenta leía el análisis redactado para otra.
+const PREFIJOS_IA = ['analisis_compra_', 'expl_deuda_']
+
+/** Marca corta del token actual (FNV-1a): distingue sesiones sin guardar el token. */
+function marcaSesion(): string {
+  let token = ''
+  try { token = localStorage.getItem('token') ?? '' } catch { /* sin storage */ }
+  let h = 0x811c9dc5
+  for (let i = 0; i < token.length; i++) {
+    h ^= token.charCodeAt(i)
+    h = Math.imul(h, 0x01000193)
+  }
+  return (h >>> 0).toString(36)
+}
+
+const llaveIA = (prefijo: string, huella: string) => `${prefijo}${marcaSesion()}_${huella}`
+
+/** Borra los textos de IA guardados. Se llama al entrar y al salir de una cuenta. */
+export function limpiarCacheIA() {
+  try {
+    for (let i = sessionStorage.length - 1; i >= 0; i--) {
+      const llave = sessionStorage.key(i)
+      if (llave && PREFIJOS_IA.some(p => llave.startsWith(p))) sessionStorage.removeItem(llave)
+    }
+  } catch { /* sin storage no hay nada que limpiar */ }
+}
+
 // ------------------------------------------------- 1. extraccion de PDF
 /**
  * Sube el estado de cuenta y devuelve los términos listos para el formulario.
@@ -66,7 +97,7 @@ export async function extraerEstadoDeCuenta(
 export async function explicarPrioridad(
   huella: string,
 ): Promise<ExplicacionDeudaResponse> {
-  const llave = 'expl_deuda_' + huella
+  const llave = llaveIA('expl_deuda_', huella)
 
   try {
     const cache = sessionStorage.getItem(llave)
@@ -103,7 +134,7 @@ export async function explicarPrioridad(
 export async function analizarCompra(
   peticion: SimulacionRequest, huella: string,
 ): Promise<AnalisisCompraResponse> {
-  const llave = 'analisis_compra_' + huella
+  const llave = llaveIA('analisis_compra_', huella)
 
   try {
     const cache = sessionStorage.getItem(llave)
