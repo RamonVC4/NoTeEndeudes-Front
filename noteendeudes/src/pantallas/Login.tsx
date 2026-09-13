@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft, Eye, EyeOff } from 'lucide-react'
 import { useSesion } from '../auth/AuthContext'
 import Boton from '../componentes/Boton'
 import Campo from '../componentes/Campo'
@@ -17,6 +17,7 @@ export default function Login() {
   const [nombre, setNombre] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [verPassword, setVerPassword] = useState(false)
   const [enviando, setEnviando] = useState(false)
   const [error, setError] = useState<unknown>(null)
   const [errorPassword, setErrorPassword] = useState<string | null>(null)
@@ -53,12 +54,13 @@ export default function Login() {
       <div className="w-full max-w-[380px]">
         <Link
           to="/"
-          className="inline-flex items-center gap-1.5 text-14 text-tinta-suave hover:text-tinta mb-4"
+          className="inline-flex items-center gap-1.5 text-14 text-tinta-suave hover:text-tinta py-2 mb-2"
         >
           <ArrowLeft size={16} />
-          Qué es esto
+          ¿Qué hacemos?
         </Link>
 
+        <img src="/icons/icon-192.png" alt="" className="size-14 mb-3" />
         <h1 className="font-titulo text-32">No te endeudes</h1>
         <p className="text-14 text-tinta-suave mt-1">
           Antes de comprar, mira qué le pasa a tu dinero.
@@ -115,7 +117,18 @@ export default function Login() {
             />
             <Campo
               etiqueta="Contraseña"
-              type="password"
+              type={verPassword ? 'text' : 'password'}
+              accion={
+                <button
+                  type="button"
+                  onClick={() => setVerPassword(v => !v)}
+                  aria-label={verPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                  aria-pressed={verPassword}
+                  className="p-2.5 rounded text-tinta-suave hover:text-tinta"
+                >
+                  {verPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              }
               value={password}
               onChange={e => { setPassword(e.target.value); setErrorPassword(null) }}
               autoComplete={modo === 'registro' ? 'new-password' : 'current-password'}

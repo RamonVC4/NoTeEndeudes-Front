@@ -76,7 +76,7 @@ export default function Bienvenida() {
       <header className="sticky top-0 z-20 bg-superficie border-b border-linea">
         <div className="mx-auto max-w-[1100px] px-4 py-3 flex items-center justify-between gap-3">
           <p className="font-titulo text-16 font-semibold leading-tight">No te endeudes</p>
-          <Link to="/login" className="text-14 text-accion rounded-md px-2 py-1 hover:underline">
+          <Link to="/login" className="text-14 text-accion rounded-md px-2 py-2 -my-1 hover:underline">
             Iniciar sesión
           </Link>
         </div>
@@ -95,7 +95,7 @@ export default function Bienvenida() {
           <p className="text-12 text-tinta-suave">
             No te endeudes — salud financiera personal, en pesos mexicanos.
           </p>
-          <Link to="/login" className="text-12 text-accion ml-auto hover:underline">
+          <Link to="/login" className="text-12 text-accion ml-auto py-2.5 -my-2.5 hover:underline">
             Entrar a mi cuenta
           </Link>
         </div>

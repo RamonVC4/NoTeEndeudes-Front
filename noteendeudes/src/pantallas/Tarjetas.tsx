@@ -1003,7 +1003,7 @@ function ModalCortes({
           type="button"
           onClick={() => setAbriendo(true)}
           disabled={abierto !== null}
-          className="flex items-center gap-2 text-14 text-accion mt-4
+          className="flex items-center gap-2 text-14 text-accion mt-2 py-2
                      hover:underline disabled:opacity-40 disabled:no-underline"
         >
           <Plus size={16} />

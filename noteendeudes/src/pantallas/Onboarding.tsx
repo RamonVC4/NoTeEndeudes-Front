@@ -829,7 +829,7 @@ function BotonQuitar({ etiqueta, onClick }: { etiqueta: string; onClick: () => v
       type="button"
       aria-label={etiqueta}
       onClick={onClick}
-      className="absolute top-3 right-3 text-tinta-suave hover:text-tinta p-1"
+      className="absolute top-1 right-1 text-tinta-suave hover:text-tinta p-3"
     >
       <Trash2 size={16} />
     </button>
@@ -856,8 +856,14 @@ function Exito({
           gastas, se vuelve realista.
         </p>
 
-        <dl className="grid grid-cols-3 gap-3 mt-5 pt-4 border-t border-linea">
-          <Resumen etiqueta="Disponible" valor={mxn(respuesta.liquidez)} />
+        {/* En móvil el disponible va a lo ancho: tres columnas de ~75px no
+            alcanzan para un monto como $123,456.78. */}
+        <dl className="grid grid-cols-2 sm:grid-cols-3 gap-3 mt-5 pt-4 border-t border-linea">
+          <Resumen
+            etiqueta="Disponible"
+            valor={mxn(respuesta.liquidez)}
+            className="col-span-2 sm:col-span-1"
+          />
           <Resumen etiqueta="Ingresos" valor={String(respuesta.ingresos_creados)} />
           <Resumen etiqueta="Tarjetas" valor={String(respuesta.tarjetas_creadas)} />
         </dl>
@@ -870,9 +876,11 @@ function Exito({
   )
 }
 
-function Resumen({ etiqueta, valor }: { etiqueta: string; valor: string }) {
+function Resumen({
+  etiqueta, valor, className = '',
+}: { etiqueta: string; valor: string; className?: string }) {
   return (
-    <div>
+    <div className={`min-w-0 ${className}`}>
       <dt className="text-12 text-tinta-suave">{etiqueta}</dt>
       <dd className="cifra text-16 font-medium">{valor}</dd>
     </div>

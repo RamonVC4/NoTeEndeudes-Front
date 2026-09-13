@@ -10,7 +10,7 @@ import {
 import { PLAZOS_COMUNES } from '../lib/tipos'
 import type {
   Coleccion, Estado, MedioPago, MovimientoCreate, MovimientoResponse,
-  MovimientoResumen, ScoreResponse, TipoMovimiento,
+  MovimientoResumen, ScoreResponse, TarjetaEstado, TipoMovimiento,
 } from '../lib/tipos'
 import Encabezado from '../componentes/Encabezado'
 import BarraComponente from '../componentes/BarraComponente'
@@ -22,29 +22,36 @@ import Modal from '../componentes/Modal'
 import Vacio from '../componentes/Vacio'
 
 /**
+ * Aquí solo se registran gastos e ingresos. Los pagos a tarjeta viven en
+ * "Qué pagar primero" (Deuda), aunque el historial los sigue mostrando.
+ */
+type TipoRegistro = Exclude<TipoMovimiento, 'pago'>
+
+/**
  * COMBINACIONES VÁLIDAS. Cualquier otra da 422, así que el formulario deriva
  * los medios del tipo en vez de dejar elegir y que el servidor lo rechace.
  *
  *   gasto   + efectivo/debito + SIN tarjeta  -> baja la liquidez
  *   gasto   + credito         + CON tarjeta  -> sube el saldo; la liquidez NO se toca
- *   pago    + efectivo/debito + CON tarjeta  -> baja las dos
  *   ingreso + efectivo/debito + SIN tarjeta  -> sube la liquidez
  */
-const MEDIOS_DE: Record<TipoMovimiento, MedioPago[]> = {
+const MEDIOS_DE: Record<TipoRegistro, MedioPago[]> = {
   gasto: ['efectivo', 'debito', 'credito'],
-  pago: ['efectivo', 'debito'],
   ingreso: ['efectivo', 'debito'],
 }
 
 const NOMBRE_MEDIO: Record<MedioPago, string> = {
   efectivo: 'Efectivo',
   debito: 'Débito',
-  credito: 'Crédito',
+  credito: 'Tarjeta de crédito',
 }
 
-/** El pago siempre es a una tarjeta; el gasto solo cuando es a crédito. */
-const pideTarjeta = (tipo: TipoMovimiento, medio: MedioPago) =>
-  tipo === 'pago' || (tipo === 'gasto' && medio === 'credito')
+/** Solo el gasto a crédito lleva tarjeta. */
+const pideTarjeta = (tipo: TipoRegistro, medio: MedioPago) =>
+  tipo === 'gasto' && medio === 'credito'
+
+/** Algunas tarjetas llegan sin mínimo para meses: eso es "sin mínimo". */
+const minimoMSI = (t: TarjetaEstado) => t.monto_minimo_msi ?? 0
 
 export default function Movimientos() {
   const cargar = useCallback(
@@ -57,7 +64,7 @@ export default function Movimientos() {
     return (
       <>
         <Titulo />
-        <div className="grid gap-4 lg:grid-cols-[340px_minmax(0,1fr)]">
+        <div className="grid gap-4 grid-cols-[minmax(0,1fr)] lg:grid-cols-[340px_minmax(0,1fr)]">
           <CargandoPanel lineas={5} />
           <CargandoPanel lineas={6} />
         </div>
@@ -85,8 +92,10 @@ function Contenido({
   return (
     <>
       <Titulo />
-      <div className="grid gap-4 lg:grid-cols-[340px_minmax(0,1fr)] items-start">
-        <div className="space-y-4 lg:sticky lg:top-5">
+      <div className="grid gap-4 grid-cols-[minmax(0,1fr)] lg:grid-cols-[340px_minmax(0,1fr)] items-start">
+        {/* Sin sticky: con tarjeta y meses el formulario queda más alto que la
+            ventana, y fijo dejaba los plazos y el botón fuera de alcance. */}
+        <div className="space-y-4">
           <FormaMovimiento
             estado={estado}
             onHecho={r => { setUltimo(r); alCambiar() }}
@@ -148,13 +157,16 @@ function FormaMovimiento({
   const { categorias } = useCategorias()
   const { clave, gestoCompletado } = useClaveIdempotencia()
 
-  const [tipo, setTipo] = useState<TipoMovimiento>('gasto')
+  const [tipo, setTipo] = useState<TipoRegistro>('gasto')
   const [medio, setMedio] = useState<MedioPago>('debito')
   const [monto, setMonto] = useState<number>(0)
   const [categoria, setCategoria] = useState<string>('')
   const [descripcion, setDescripcion] = useState('')
   const [fecha, setFecha] = useState(hoyISO())
-  const [tarjetaId, setTarjetaId] = useState<string>('')
+  // Con una sola tarjeta no hay nada que elegir.
+  const [tarjetaId, setTarjetaId] = useState<string>(
+    estado.tarjetas.length === 1 ? estado.tarjetas[0].id : '',
+  )
   const [conMSI, setConMSI] = useState(false)
   const [meses, setMeses] = useState(12)
 
@@ -165,13 +177,15 @@ function FormaMovimiento({
   const campos = camposConError(error)
   const sinTarjetas = estado.tarjetas.length === 0
   const conTarjeta = pideTarjeta(tipo, medio)
-  const aMeses = tipo === 'gasto' && medio === 'credito' && conMSI
+  // Tras una recarga la tarjeta elegida puede ya no estar: entonces no hay tarjeta.
+  const tarjeta = conTarjeta ? estado.tarjetas.find(t => t.id === tarjetaId) ?? null : null
+  const aMeses = conTarjeta && conMSI
   // El catálogo llega por red; hasta entonces el select está vacío y no hay
   // clave que mandar.
   const categoriaEfectiva = categoria || categorias[0]?.clave || ''
 
   /** Cambiar de tipo puede dejar el medio en una combinación inválida. */
-  function cambiarTipo(t: TipoMovimiento) {
+  function cambiarTipo(t: TipoRegistro) {
     setTipo(t)
     setAviso(null)
     if (!MEDIOS_DE[t].includes(medio)) setMedio('debito')
@@ -190,7 +204,17 @@ function FormaMovimiento({
     setAviso(null)
 
     if (!(monto > 0)) { setAviso('Escribe de cuánto fue'); return }
-    if (conTarjeta && !tarjetaId) { setAviso('Elige la tarjeta'); return }
+    if (conTarjeta && !tarjeta) { setAviso('Elige la tarjeta'); return }
+    // Los mismos textos que redacta el servidor: el usuario lee lo mismo antes
+    // y después de enviar.
+    if (tarjeta && monto > tarjeta.disponible) {
+      setAviso(`Excede tu linea disponible en ${tarjeta.nombre}`)
+      return
+    }
+    if (tarjeta && aMeses && monto < minimoMSI(tarjeta)) {
+      setAviso(`Los meses con esta tarjeta piden minimo ${mxn(minimoMSI(tarjeta))}`)
+      return
+    }
     if (tipo === 'gasto' && !categoriaEfectiva) { setAviso('Elige una categoría'); return }
 
     // `tarjeta_id` se OMITE cuando no toca: mandarlo en null también es 422.
@@ -201,7 +225,7 @@ function FormaMovimiento({
       fecha,
       ...(tipo === 'gasto' ? { categoria: categoriaEfectiva } : {}),
       ...(descripcion.trim() ? { descripcion: descripcion.trim() } : {}),
-      ...(conTarjeta ? { tarjeta_id: tarjetaId } : {}),
+      ...(tarjeta ? { tarjeta_id: tarjeta.id } : {}),
       ...(aMeses ? { msi: { meses, descripcion: descripcion.trim() || undefined } } : {}),
     }
 
@@ -210,6 +234,7 @@ function FormaMovimiento({
       const r = await api.registrarMovimiento(cuerpo, clave())
       gestoCompletado()
       onHecho(r)
+      // Tipo, medio y tarjeta se quedan: se suelen capturar varias compras seguidas.
       setMonto(0)
       setDescripcion('')
       setConMSI(false)
@@ -228,13 +253,6 @@ function FormaMovimiento({
         <Pestana activo={tipo === 'gasto'} onClick={() => cambiarTipo('gasto')}>
           Gasto
         </Pestana>
-        <Pestana
-          activo={tipo === 'pago'}
-          onClick={() => cambiarTipo('pago')}
-          deshabilitado={sinTarjetas}
-        >
-          Pago a tarjeta
-        </Pestana>
         <Pestana activo={tipo === 'ingreso'} onClick={() => cambiarTipo('ingreso')}>
           Ingreso
         </Pestana>
@@ -247,9 +265,49 @@ function FormaMovimiento({
         step="any"
         prefijo="$"
         value={monto || ''}
-        onChange={e => setMonto(Number(e.target.value))}
+        onChange={e => { setMonto(Number(e.target.value)); setAviso(null) }}
         error={campos.monto}
       />
+
+      <div>
+        <p className="etiqueta">{tipo === 'ingreso' ? '¿Cómo te llegó?' : '¿Con qué pagaste?'}</p>
+        <div className="flex gap-1" role="group" aria-label="Medio de pago">
+          {MEDIOS_DE[tipo].map(m => (
+            <Pestana
+              key={m}
+              activo={medio === m}
+              onClick={() => cambiarMedio(m)}
+              deshabilitado={m === 'credito' && sinTarjetas}
+            >
+              {NOMBRE_MEDIO[m]}
+            </Pestana>
+          ))}
+        </div>
+        {tipo === 'gasto' && sinTarjetas && (
+          <p className="text-12 text-tinta-suave mt-1">
+            Da de alta una tarjeta en Tarjetas para registrar compras a crédito.
+          </p>
+        )}
+        {conTarjeta && (
+          <p className="text-12 text-tinta-suave mt-1">
+            No sale dinero de tu bolsillo: sube lo que debes.
+          </p>
+        )}
+      </div>
+
+      {conTarjeta && (
+        <CompraConTarjeta
+          tarjetas={estado.tarjetas}
+          tarjeta={tarjeta}
+          onTarjeta={id => { setTarjetaId(id); setAviso(null) }}
+          aMeses={conMSI}
+          onAMeses={v => { setConMSI(v); setAviso(null) }}
+          meses={meses}
+          onMeses={setMeses}
+          monto={monto}
+          error={campos.tarjeta_id}
+        />
+      )}
 
       {tipo === 'gasto' && (
         <CampoSelect
@@ -283,55 +341,6 @@ function FormaMovimiento({
         error={campos.fecha}
       />
 
-      <div>
-        <p className="etiqueta">
-          {tipo === 'pago' ? '¿De dónde sale?' : '¿Con qué?'}
-        </p>
-        <div className="flex gap-1" role="group" aria-label="Medio de pago">
-          {MEDIOS_DE[tipo].map(m => (
-            <Pestana
-              key={m}
-              activo={medio === m}
-              onClick={() => cambiarMedio(m)}
-              deshabilitado={m === 'credito' && sinTarjetas}
-            >
-              {NOMBRE_MEDIO[m]}
-            </Pestana>
-          ))}
-        </div>
-        {tipo === 'gasto' && medio === 'credito' && (
-          <p className="text-12 text-tinta-suave mt-1">
-            No sale dinero de tu bolsillo: sube lo que debes.
-          </p>
-        )}
-      </div>
-
-      {conTarjeta && (
-        <CampoSelect
-          etiqueta={tipo === 'pago' ? '¿Cuál tarjeta pagas?' : '¿Con cuál tarjeta?'}
-          value={tarjetaId}
-          onChange={e => setTarjetaId(e.target.value)}
-          error={campos.tarjeta_id}
-        >
-          <option value="">Elige una</option>
-          {estado.tarjetas.map(t => (
-            <option key={t.id} value={t.id}>
-              {t.nombre} — te quedan {mxn(t.disponible)}
-            </option>
-          ))}
-        </CampoSelect>
-      )}
-
-      {tipo === 'gasto' && medio === 'credito' && (
-        <MesesSinIntereses
-          activo={conMSI}
-          meses={meses}
-          monto={monto}
-          onActivo={setConMSI}
-          onMeses={setMeses}
-        />
-      )}
-
       {aviso && <ErrorLinea error={new Error(aviso)} />}
       {error != null && <ErrorLinea error={error} />}
 
@@ -343,36 +352,82 @@ function FormaMovimiento({
 }
 
 /**
- * El bloque de meses sin intereses.
+ * La compra con tarjeta, en tres pasos: con cuál, cómo se pagó y, si fue a
+ * meses, a cuántos.
  *
  * Los meses los define EL COMERCIO, no la tarjeta, y el saldo sube por el
  * TOTAL desde el día uno: el banco prestó los doce mil completos, y los "mil al
  * mes" son solo el permiso de pagarlo en doce. Modelarlo como +$1,000/mes le
  * diría al usuario que está mucho menos endeudado de lo que está.
  */
-function MesesSinIntereses({
-  activo, meses, monto, onActivo, onMeses,
+function CompraConTarjeta({
+  tarjetas, tarjeta, onTarjeta, aMeses, onAMeses, meses, onMeses, monto, error,
 }: {
-  activo: boolean
+  tarjetas: TarjetaEstado[]
+  tarjeta: TarjetaEstado | null
+  onTarjeta: (id: string) => void
+  aMeses: boolean
+  onAMeses: (v: boolean) => void
   meses: number
-  monto: number
-  onActivo: (v: boolean) => void
   onMeses: (m: number) => void
+  monto: number
+  error?: string | null
 }) {
-  return (
-    <div className="border-t border-linea pt-3">
-      <label className="flex gap-2.5 items-start">
-        <input
-          type="checkbox"
-          checked={activo}
-          onChange={e => onActivo(e.target.checked)}
-          className="mt-0.5 size-4 shrink-0 accent-[var(--accion)]"
-        />
-        <span className="text-14">Lo compré a meses sin intereses</span>
-      </label>
+  const minimo = tarjeta ? minimoMSI(tarjeta) : 0
 
-      {activo && (
-        <div className="mt-3">
+  return (
+    <div className="border-t border-linea pt-3 space-y-4">
+      <div>
+        <p className="etiqueta">¿Con cuál tarjeta?</p>
+        <div className="grid gap-1.5" role="group" aria-label="Tarjeta">
+          {tarjetas.map(t => {
+            const activa = tarjeta?.id === t.id
+            return (
+              <button
+                key={t.id}
+                type="button"
+                aria-pressed={activa}
+                onClick={() => onTarjeta(t.id)}
+                className={[
+                  'text-left rounded-md border px-3 py-2',
+                  activa ? 'border-accion bg-papel' : 'border-linea hover:border-tinta-suave',
+                ].join(' ')}
+              >
+                <span className={`block text-14 ${activa ? 'font-medium text-accion' : ''}`}>
+                  {t.nombre}
+                </span>
+                <span className="block text-12 text-tinta-suave cifra">
+                  Disponible {mxn(t.disponible)}
+                  {minimoMSI(t) > 0 && ` · meses desde ${mxn(minimoMSI(t))}`}
+                </span>
+              </button>
+            )
+          })}
+        </div>
+        {error && <p className="text-12 mt-1" style={{ color: 'var(--rojo)' }}>{error}</p>}
+        {tarjeta && monto > tarjeta.disponible && (
+          <p className="text-12 mt-1" style={{ color: 'var(--rojo)' }}>
+            Pasa de lo que te queda de línea ({mxn(tarjeta.disponible)}).
+          </p>
+        )}
+      </div>
+
+      {tarjeta && (
+        <div>
+          <p className="etiqueta">¿Cómo lo pagaste?</p>
+          <div className="flex gap-1" role="group" aria-label="Forma de pago">
+            <Pestana activo={!aMeses} onClick={() => onAMeses(false)}>
+              Un solo pago
+            </Pestana>
+            <Pestana activo={aMeses} onClick={() => onAMeses(true)}>
+              A meses sin intereses
+            </Pestana>
+          </div>
+        </div>
+      )}
+
+      {tarjeta && aMeses && (
+        <div>
           <p className="etiqueta">¿A cuántos meses?</p>
           <div className="flex gap-1.5 flex-wrap" role="group" aria-label="Plazo">
             {PLAZOS_COMUNES.map(m => (
@@ -392,11 +447,17 @@ function MesesSinIntereses({
               </button>
             ))}
           </div>
-          <p className="text-12 text-tinta-suave mt-2">
-            {monto > 0
-              ? `Pagas ${mxn(Math.round(monto / meses))} al mes, pero lo que debes sube ${mxn(monto)} hoy.`
-              : 'Lo que debes sube por el total desde hoy, no por la mensualidad.'}
-          </p>
+          {monto > 0 && monto < minimo ? (
+            <p className="text-12 mt-2" style={{ color: 'var(--rojo)' }}>
+              A meses, {tarjeta.nombre} pide mínimo {mxn(minimo)}.
+            </p>
+          ) : (
+            <p className="text-12 text-tinta-suave mt-2">
+              {monto > 0
+                ? `Pagas ${mxn(Math.round(monto / meses))} al mes, pero lo que debes sube ${mxn(monto)} hoy.`
+                : 'Lo que debes sube por el total desde hoy, no por la mensualidad.'}
+            </p>
+          )}
         </div>
       )}
     </div>
@@ -540,7 +601,7 @@ function Fila({
         type="button"
         aria-label={`Borrar ${mov.descripcion ?? etiquetaTipo(mov.tipo)}`}
         onClick={onBorrar}
-        className="text-tinta-suave hover:text-tinta p-1 shrink-0"
+        className="text-tinta-suave hover:text-tinta p-3 -m-2 shrink-0"
       >
         <Trash2 size={15} />
       </button>
