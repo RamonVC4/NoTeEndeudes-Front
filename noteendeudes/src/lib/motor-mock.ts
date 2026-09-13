@@ -273,6 +273,7 @@ function preferenciaModalidad(
     return 2
   }
 
+
 function escenariosDeTarjeta(
   e: Estado, t: TarjetaEstado, monto: number, plazos: number[],
 ): ConExacto[] {
