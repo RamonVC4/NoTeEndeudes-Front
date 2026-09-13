@@ -440,7 +440,7 @@ function BloqueCorte({
         <p className="text-14 text-tinta-suave">
           No tienes un corte cerrado por cubrir en esta tarjeta.
         </p>
-        <Link to="/tarjetas" className="text-14 underline inline-block mt-1">
+        <Link to="/tarjetas" className="text-14 underline inline-block py-2 -mb-1">
           Ver tus cortes
         </Link>
       </div>

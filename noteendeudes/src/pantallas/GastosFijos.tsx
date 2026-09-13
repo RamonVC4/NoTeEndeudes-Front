@@ -138,7 +138,7 @@ function Fila({
         type="button"
         aria-label={`Quitar ${r.concepto}`}
         onClick={onBorrar}
-        className="text-tinta-suave hover:text-tinta p-1 shrink-0"
+        className="text-tinta-suave hover:text-tinta p-3 -m-2 shrink-0"
       >
         <Trash2 size={15} />
       </button>

@@ -165,11 +165,23 @@
   }
 }
 
-/* Slider del simulador: neutro, con el pulgar en color de acción. */
+/* Slider del simulador: neutro, con el pulgar en color de acción.
+   El input mide 28px de alto y la línea de 2px se dibuja como pista: con el
+   input de 2px, en un teléfono casi no había dónde poner el dedo. */
 input[type='range'] {
   -webkit-appearance: none;
   appearance: none;
   width: 100%;
+  height: 1.75rem;
+  background: transparent;
+  cursor: pointer;
+}
+input[type='range']::-webkit-slider-runnable-track {
+  height: 2px;
+  background: var(--linea);
+  border-radius: 2px;
+}
+input[type='range']::-moz-range-track {
   height: 2px;
   background: var(--linea);
   border-radius: 2px;
@@ -179,6 +191,8 @@ input[type='range']::-webkit-slider-thumb {
   appearance: none;
   width: 20px;
   height: 20px;
+  /* Centra el pulgar de 20px sobre la pista de 2px. */
+  margin-top: -9px;
   border-radius: 50%;
   background: var(--accion);
   border: 2px solid var(--superficie);

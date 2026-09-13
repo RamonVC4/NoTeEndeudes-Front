@@ -12,6 +12,8 @@ interface Base {
 interface PropsCampo extends Base, Omit<InputHTMLAttributes<HTMLInputElement>, 'children'> {
   prefijo?: string
   sufijo?: string
+  /** Un control al final del campo, como el botón para ver la contraseña. */
+  accion?: ReactNode
 }
 
 /**
@@ -49,7 +51,7 @@ function Envoltura({
 }
 
 export default function Campo({
-  etiqueta, error, ayuda, deIA, prefijo, sufijo, className = '', id, ...resto
+  etiqueta, error, ayuda, deIA, prefijo, sufijo, accion, className = '', id, ...resto
 }: PropsCampo) {
   const auto = useId()
   const idCampo = id ?? auto
@@ -77,6 +79,7 @@ export default function Campo({
             'control cifra',
             prefijo ? 'pl-6' : '',
             sufijo ? 'pr-8' : '',
+            accion ? 'pr-10' : '',
             className,
           ].join(' ')}
         />
@@ -84,6 +87,11 @@ export default function Campo({
           <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-tinta-suave pointer-events-none">
             {sufijo}
           </span>
+        )}
+        {accion && (
+          <div className="absolute right-1 top-1/2 -translate-y-1/2 flex">
+            {accion}
+          </div>
         )}
       </div>
     </Envoltura>

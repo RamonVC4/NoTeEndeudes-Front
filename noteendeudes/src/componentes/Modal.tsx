@@ -34,7 +34,7 @@ export default function Modal({ titulo, onCerrar, children }: Props) {
       >
         <div className="flex items-start justify-between gap-3 mb-4">
           <h2 className="font-titulo text-20">{titulo}</h2>
-          <button onClick={onCerrar} aria-label="Cerrar" className="text-tinta-suave shrink-0">
+          <button onClick={onCerrar} aria-label="Cerrar" className="text-tinta-suave shrink-0 p-2 -m-2">
             <X size={20} />
           </button>
         </div>

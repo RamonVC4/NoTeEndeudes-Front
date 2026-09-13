@@ -44,7 +44,10 @@ export default function Marco({ children }: { children: ReactNode }) {
                    border-r border-linea bg-superficie px-3 py-4"
       >
         <div className="px-2 pb-4">
-          <p className="font-titulo text-16 font-semibold leading-tight">No te endeudes</p>
+          <p className="font-titulo text-16 font-semibold leading-tight flex items-center gap-2">
+            <img src="/icons/icon-192.png" alt="" className="size-7 shrink-0" />
+            No te endeudes
+          </p>
           {usuario && (
             <p className="text-12 text-tinta-suave mt-0.5 truncate">{usuario.nombre}</p>
           )}
@@ -75,11 +78,14 @@ export default function Marco({ children }: { children: ReactNode }) {
       {/* Cabecera de móvil */}
       <header className="md:hidden sticky top-0 z-20 bg-superficie border-b border-linea px-4 py-3
                          flex items-center justify-between">
-        <div className="min-w-0">
-          <p className="font-titulo text-16 font-semibold leading-tight truncate">
-            No te endudes
-          </p>
-          {usuario && <p className="text-12 text-tinta-suave truncate">{usuario.nombre}</p>}
+        <div className="min-w-0 flex items-center gap-2">
+          <img src="/icons/icon-192.png" alt="" className="size-8 shrink-0" />
+          <div className="min-w-0">
+            <p className="font-titulo text-16 font-semibold leading-tight truncate">
+              No te endudes
+            </p>
+            {usuario && <p className="text-12 text-tinta-suave truncate">{usuario.nombre}</p>}
+          </div>
         </div>
         <Marcas esDemo={usuario?.es_demo} />
       </header>
@@ -119,7 +125,7 @@ export default function Marco({ children }: { children: ReactNode }) {
           >
             <div className="flex items-center justify-between mb-2">
               <p className="font-titulo text-16 font-semibold">Más</p>
-              <button onClick={() => setMasAbierto(false)} aria-label="Cerrar">
+              <button onClick={() => setMasAbierto(false)} aria-label="Cerrar" className="p-2 -m-2">
                 <X size={20} />
               </button>
             </div>

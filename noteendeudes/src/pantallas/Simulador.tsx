@@ -425,7 +425,7 @@ function FilaTarjeta({
           type="button"
           onClick={onQuitar}
           aria-label={`Quitar ${tarjeta.nombre} de la comparación`}
-          className="text-tinta-suave hover:text-tinta shrink-0"
+          className="text-tinta-suave hover:text-tinta shrink-0 p-2.5 -m-2.5"
         >
           <X size={16} />
         </button>
