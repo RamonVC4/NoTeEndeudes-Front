@@ -165,6 +165,15 @@ function preferenciaModalidad(
     return 2
   }
 
+<<<<<<< HEAD
+=======
+<<<<<<< HEAD
+<<<<<<< HEAD
+=======
+  // MSI: a igualdad de score protegen el efectivo.
+  return 1
+=======
+>>>>>>> 82e4583c763828523a3ff5a4a5f4fd1286e0634b
   if (mod.includes('_msi')) {
     const plazo = parseInt(mod.split('_')[0], 10)
     if (pagoMensual < 500 && plazo >= 9) return 3
@@ -182,7 +191,13 @@ function preferenciaModalidad(
   }
 
   return 5
+<<<<<<< HEAD
 }
+=======
+>>>>>>> 568c85f47b47d1260476be7a50968cf443270ec5
+}
+>>>>>>> 80e6e49d9639a2960d8a9f0351b9383bb82cafc1
+>>>>>>> 82e4583c763828523a3ff5a4a5f4fd1286e0634b
 
 // --- Generación de Escenarios por Tarjeta ---
 function escenariosDeTarjeta(estado: EstadoFinancieroMock, t: TarjetaMock, monto: number, plazos: number[]) {

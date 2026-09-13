@@ -3,6 +3,7 @@ import {
 } from 'react'
 import type { ReactNode } from 'react'
 import * as api from '../lib/api'
+import { limpiarCacheIA } from '../lib/ia'
 import type { UsuarioResumen } from '../lib/tipos'
 
 interface Sesion {
@@ -45,6 +46,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const trasEntrar = useCallback(async (token: string) => {
+    // Los textos de IA de la cuenta anterior no deben sobrevivir al cambio.
+    limpiarCacheIA()
     localStorage.setItem('token', token)
     const u = await api.yo()
     setUsuario(u)
@@ -69,6 +72,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const salir = useCallback(() => {
     localStorage.removeItem('token')
+    limpiarCacheIA()
     setUsuario(null)
   }, [])
 

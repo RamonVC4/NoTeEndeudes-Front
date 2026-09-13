@@ -35,14 +35,21 @@ const BASE = `${ORIGEN}${BASE_URL}`
 export const MOCK = import.meta.env.VITE_MOCK === '1'
 
 export class ApiException extends Error {
+  status: number
+  codigo: CodigoError
+  detalle: DetalleError
+
   constructor(
-    public status: number,
-    public codigo: CodigoError,
+    status: number,
+    codigo: CodigoError,
     mensaje: string,
-    public detalle: DetalleError = {},
+    detalle: DetalleError = {},
   ) {
     super(mensaje)
     this.name = 'ApiException'
+    this.status = status
+    this.codigo = codigo
+    this.detalle = detalle
   }
 
   /** Alias legible de message: es el texto que manda el backend. */
