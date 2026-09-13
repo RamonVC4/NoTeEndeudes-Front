@@ -253,6 +253,7 @@ type ConExacto = Escenario & { _exacto: number }
 function preferenciaModalidad(
   mod: Modalidad | null,
   monto: number,
+  pagoMensual: number,
   liquidez: number,
   score: number,
   diasParaNomina: number
@@ -266,14 +267,35 @@ function preferenciaModalidad(
 
     if (liquidezRestante < colchonMinimoVital) return 3
 
-    // REGLA DE ABUNDANCIA
+    // NUEVA REGLA: Si la compra pasa de $2,000, el contado pierde la máxima prioridad 
+    // y cede el paso a los MSI (protegiendo el efectivo).
+    if (monto > 2000) return 2
+
+    // Para compras menores a $2,000, si hay abundancia o score alto, manda el contado
     if (monto <= (liquidez * 0.25) || monto < 500 || score >= 95) return 0
 
     return 2
   }
 
-  // MSI: a igualdad de score protegen el efectivo.
-  return 1
+  if (mod.includes('_msi')) {
+    const plazo = parseInt(mod.split('_')[0], 10)
+    
+    if (pagoMensual < 500 && plazo >= 9) return 3
+
+    // Escala dinámica por monto para los plazos
+    if (monto >= 15000) {
+      if (plazo >= 12) return 1
+      return 2
+    } else if (monto >= 5000) {
+      if (plazo >= 6 && plazo <= 9) return 1
+      return 2
+    } else {
+      if (plazo <= 6) return 1
+      return 2
+    }
+  }
+
+  return 5
 }
 
 function escenariosDeTarjeta(
