@@ -253,7 +253,6 @@ type ConExacto = Escenario & { _exacto: number }
 function preferenciaModalidad(
   mod: Modalidad | null,
   monto: number,
-  pagoMensual: number,
   liquidez: number,
   score: number,
   diasParaNomina: number
@@ -264,14 +263,18 @@ function preferenciaModalidad(
   if (mod === 'contado') {
     const colchonMinimoVital = diasParaNomina * 400
     const liquidezRestante = liquidez - monto
-    
+
     if (liquidezRestante < colchonMinimoVital) return 3
-    
+
     // REGLA DE ABUNDANCIA
     if (monto <= (liquidez * 0.25) || monto < 500 || score >= 95) return 0
-    
+
     return 2
   }
+
+  // MSI: a igualdad de score protegen el efectivo.
+  return 1
+}
 
 function escenariosDeTarjeta(
   e: Estado, t: TarjetaEstado, monto: number, plazos: number[],
@@ -377,10 +380,14 @@ export function simularCompra(
   // Viables primero y MEJOR SCORE arriba — el criterio, no un desempate. Por el
   // score exacto y no el redondeado: dos opciones que muestran "61" pueden no
   // valer lo mismo. Después la preferencia, el costo y la holgura.
+  const scoreActual = calcularScore(e).score
+  const diasParaNomina = Math.min(DIAS_PROYECCION, ...e.ingresos_programados.map(i => i.dia))
+  const preferencia = (s: Escenario) =>
+    preferenciaModalidad(s.modalidad, monto, e.liquidez, scoreActual, diasParaNomina)
   conExacto.sort((a, b) =>
     Number(!a.viable) - Number(!b.viable) ||
     b._exacto - a._exacto ||
-    preferenciaModalidad(a.modalidad, monto) - preferenciaModalidad(b.modalidad, monto) ||
+    preferencia(a) - preferencia(b) ||
     (a.costo_total ?? Infinity) - (b.costo_total ?? Infinity) ||
     (b.holgura_despues ?? 0) - (a.holgura_despues ?? 0))
 
@@ -403,7 +410,7 @@ export function simularCompra(
     plazos_ofrecidos: opciones === null
       ? plazos
       : [...new Set(opciones.flatMap(o => o.plazos ?? []))].sort((a, b) => a - b),
-    score_actual: calcularScore(e).score,
+    score_actual: scoreActual,
     recomendado,
     escenarios,
     veredicto: juicio.veredicto,
